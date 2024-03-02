@@ -5,7 +5,7 @@ All MATLAB and Surface Evolver functions are located in the /library folder.
 
 ## Requirements
 - MATLAB R2020a.
-- Surface Evolver 2.70
+- [Surface Evolver 2.70](https://kenbrakke.com/evolver/evolver.html)
 
 ## Examples
 

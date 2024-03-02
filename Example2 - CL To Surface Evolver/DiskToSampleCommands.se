@@ -1,4 +1,6 @@
 // Commands for evolving scripts created from SE_DiskToFiber_template.fe
+// These are loaded when a frame####.fe file is exectued.
+// The main executing function is the routine named.
 
 // Used in calculating contact angles.
 define t_i real;
@@ -414,8 +416,9 @@ calcRefined := {
 	
 }
 
-showq;
+// Executing commands
+showq; // Opens graphics window where droplet is displayed.
 printf "%s> ", fileName;
-calcRefined;
-saveResults;  
-quit;
+calcRefined; // Executes calculation repipe
+saveResults; // Saves results to a txt file, including contact angle measurements.
+quit; // Close Surface Evolver.
