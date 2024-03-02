@@ -30,4 +30,4 @@ Figure 1 - Concept illustration of a droplet attached between a disk and a flat 
 
 
 ## References
-[1] - Soft-matter.
+[1] - Vieira et. al, _Through-drop imaging of moving contact lines and contact areas on opaque water-repellent surfaces_, Soft Matter, 2023,19, 2350-2359
