@@ -5,26 +5,26 @@ All MATLAB and Surface Evolver functions are located in the /library folder.
 
 ## Requirements
 - MATLAB R2020a.
-- Surface Evolver 2.70 - binary provided in the /library folder.
+- Surface Evolver 2.70
 
 ## Examples
 
 - **Example 1 - Image to CL** - This example shows how the CL can be obtained by the image of a CL, measured with a top-view optical microscope.
 
--  **Example 2 - CL to Surface Evolver** - This example uses a MATLAB script to automatically create a surface evolver script. Surface evolver simuations start with a set of xyz point cordinates that define the initial state of a mesh. MATLAB is used to automate this process.
+-  **Example 2 - CL to Surface Evolver** - This example uses a MATLAB script to automatically create a surface evolver script (*.fe). Surface evolver simuations start with a set of xyz point cordinates that define the initial state of a mesh. MATLAB is used to automate this process of calculating the mesh points vertices and facets.
 
 ## Concept
 
 A millimiter sized droplet is attached to an undercut disk. The droplet is brought into contact with a surface, as shown in Figure 1 below. The CL is the perimeter of the interface between the droplet and the surface, which is taken as boundary condition to the shape of the water-air interface. The top circular boundary of the disk defines another boundary condition.
 Together with the shape of the CL, the geometry is defined by:
 
-r_d - radius of the droplet holding disk.
-h - height of the droplet.
-V - volume of the droplet.
+- rd - radius of the droplet holding disk.
+- h - height of the droplet.
+- V - volume of the droplet.
 
 ![Alt text](Droplet_Anotated.png "Optional title")
 
-Figure 1 - Concept illustration.
+Figure 1 - Concept illustration of a droplet attached between a disk and a flat hydrophobic surface.
 
 
 

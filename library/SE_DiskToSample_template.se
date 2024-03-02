@@ -1,0 +1,45 @@
+// DO NOT MODIFY. Inspect at will.
+// This file serves as a template for calculating the shape of a droplet attached to disk and in contact with a flat surface.
+//
+// MATLAB function WettingLibrary.SEPrepDiskToSample() uses this template.
+// MATLAB replaces all variables marked with a % with respective values.
+
+evolver_version "2.70"  // needed for command files
+
+parameter outputFolder = %outputFolder
+parameter fileName = %fileName
+
+parameter gm = %gm // mN/m - Surface tension of water. Typical: 72e-3
+parameter a1 = %a1 // µm - Disk radius. Typical: 511e-6
+parameter rd = %rd // µm - Radius of the equivalent non contacting droplet, associated with Volume.
+
+parameter th = %thTilt //  rad - Tilt of disk
+parameter V1 = %V1 // µL - Volume of water (eq. to m^3). Typical: 1.5e-9 
+
+// Disk contraints
+constraint 1 // Disk constraint
+formula: x^2 + (y*cos(th) + (z-rd)*sin(th))^2 = a1^2 // Verified in MatLab
+
+vertices
+%vertices
+edges
+%edges
+faces
+%faces
+body
+%body
+
+
+read
+quiet
+
+dumpFile := sprintf "%s%s_dmp.fe", outputFolder, fileName // Dump file will contain the final result of the calculation of the shape of the droplet.
+outputFile := sprintf "%s%s_Output.txt", outputFolder, fileName // Output file will contain CL coordinates and contact angles.
+
+// Execute some commands as preparation
+set edge ee no_refine where sum(ee.facet,color==red)==2;  // Prevent edges in interface from refining with K command.
+set edge ee no_refine where sum(ee.facet,color==green)==2;  // Prevent edges in disk from refining with K command.
+set facet color cyan where color == white;
+set background white;
+
+read %commandsPath // "DiskToSampleCommands.se"
