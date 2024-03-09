@@ -1,0 +1,424 @@
+// Commands for evolving scripts created from SE_DiskToFiber_template.fe
+// These are loaded when a frame####.fe file is exectued.
+// The main executing function is the routine named.
+
+// Used in calculating contact angles.
+define t_i real;
+define t_f real;
+
+// ================= Util
+
+procedure sleep_ms (real Dt) {
+	t1 := clock;
+	while ((clock-t1) < Dt/1000) do {printf "";};
+}
+
+printT := {
+	printf "#ts %0.2f s", (t_f - t_i);
+}
+
+
+// ================= Mesh operations
+
+refineNearCL := {
+	foreach edge ee where color==red do {
+		//refine ee.facet[1];
+		refine ee.vertex[1].edges where color==0;
+	};
+	u 5;
+	//t 10e-6;
+}
+
+procedure cleanDroplet (real L1) {
+	delete edge ee where on_constraint 1 and ee.length < L1;
+	u 5;
+}
+
+procedure cleanDiskEdge (real L1) {
+	// Deletes edges on disk's edge that are smaller than L1.
+	skipEdge := 1;
+	foreach facet ff where color==green do {
+		skipEdge := !skipEdge;
+		if skipEdge then {continue;}; // Skip adjacent facet
+		foreach ff.edges ee where on_constraint 1 do {
+			if ee.length < L1 then {
+				unfix ff;
+				unfix ff.edges;
+				unfix ff.vertices;
+				delete ff;
+			}
+		};
+	};
+	foreach facet ff where color==green do {
+		fix ff;
+		fix ff.edges;
+		fix ff.vertices;
+	};
+		
+	//u 5;
+}
+
+procedure gT(real L1) {
+	// Acts like t L1; But in gentle steps to avoid tearing the mesh
+	t L1/20;
+	t L1/10;
+	t L1/5;
+	t L1/2;
+	t L1;
+}
+
+removeZeroAreaFacets := {
+	// Zero are facets happen when the vertecies are in line.
+	foreach facet ff where area< 1e-16 do { // Delete facets with "zero" area, i.e. points in the CL that are in line with eachother.
+		unfix ff.vertices; 
+		unfix ff.edges; 
+		delete ff.edge where (color!=red);
+		if sum(ff.edges, color==red) == 3 then {
+			delete ff.edge[1];
+		}
+	};
+	foreach edge ee where color==red do {
+		fix ee;
+		fix ee.vertices;
+		set ee no_refine;
+	}
+}
+
+refineDroplet := {
+	refine edge ee where sum(ee.facet,color==cyan)==2;
+	u 5;
+}
+
+
+// ================= Visualization and measurement
+
+procedure sleep (real N_s){
+	// N_s - Number of seconds to wait.
+	local dum;
+	dum := sprintf "ping -n %f 127.0.0.1 > nul", N_s+1;
+	system dum;
+}
+
+function real meanCLEdgesLength() {
+	// Mean length of edges that are adjacent to contact line.
+	local Nel, mL;
+	mL  := 0;
+	Nel := 0;
+
+	foreach edge CLe where color == red do {
+		foreach CLe.facet[1].edges ee where color != red do { // Two of them
+			mL := mL + ee.length;
+			Nel := Nel + 1;
+		};
+	};
+
+	mL := mL/Nel;
+	return mL;
+}
+
+function real meanCLTriangleRatio () {
+	local Nel, meanRatio, Ax, Ay, Az, Bx, By, Bz;
+	
+	meanRatio := 0;
+	Nel := 0; // Number of elements
+	
+	foreach edge ee where color == red do {
+		// Find point of facet not on edge.
+		foreach ee.facet[1].vertices vv where not fixed do { // Only one point
+			Ax := vv.x;
+			Ay := vv.y;
+			Az := vv.z;
+		};
+		// Find midpoint along edge
+		Bx := (ee.vertices[1].x + ee.vertices[2].x)/2;
+		By := (ee.vertices[1].y + ee.vertices[2].y)/2;
+		Bz := (ee.vertices[1].z + ee.vertices[2].z)/2;
+		
+		meanRatio := meanRatio + sqrt((Bx-Ax)^2 + (By-Ay)^2 + (Bz-Az)^2) / ee.length;
+		Nel := Nel + 1;
+	};
+	meanRatio := meanRatio/Nel;
+	return meanRatio;
+}
+
+procedure printProgress (integer firstTime,real NT2) {
+	// Dots and lines represent current progress.
+	// firstTime - Is first time
+	// NT2 - Total number of steps
+	
+	local inx;
+	
+	if firstTime then {
+		Nprogress := 0;
+		for ( inx := 1 ; inx <= NT2 ; inx += 1 ) {
+			printf "."; // Erase line
+		};
+	} else {	
+		Nprogress := Nprogress + 1;
+  		for ( inx := 1 ; inx <= NT2 ; inx += 1 ) {
+			printf "\b"; // Erase line
+		};
+		for ( inx := 1 ; inx <= Nprogress ; inx += 1 ) {
+			printf "|"; // Print steps done.
+		};
+		for ( inx := 1 ; inx <= NT2-Nprogress ; inx += 1 ) {
+			printf "."; // Print steps to do.
+		}; 
+		if Nprogress == NT2 then printf "\n";
+	};
+}
+
+hideDisk := {
+	set facet ff color white where color == green;
+	set edge ee color clear where sum(ee.facet,color==white)==2;
+	
+	foreach edge ee where color==red do {
+		set ee.facet color red;
+	};
+}
+
+animateZoom := {
+	show_trans "R";
+	sleep_ms(2000);
+	{show_trans "1.0u"; sleep_ms(20)} 90;
+	{show_trans "1.03z"; sleep_ms(20)} 40;
+}
+
+animateZoomTop := {
+	// Make disk transparent
+	foreach facet ff where color==green do {set ff color transparent;};
+	foreach edge ee where sum(ee.facet,color==transparent) do {set ee color transparent;};
+	
+	// Animate
+	show_trans "R";
+	sleep_ms(2000);
+	{show_trans "-1.0u"; sleep_ms(20)} 90;
+	{show_trans "1.03z"; sleep_ms(20)} 45;
+	{show_trans "-1.0c"; sleep_ms(20)} 90;
+}
+
+saveResults := {
+	local Fx1, Fy1, Nx, Ny, Nz, Vx, Vy, L1, Fx, Fy, Fz, ca;
+	// Saves results to Output file.
+	//system sprintf "mkdir \"%s\"", outputFolder; // Ensure folder exists where to save to.
+
+	printf " | SO-"; // Saving output
+	
+	// Print header
+	printf "%s\n", date_and_time >>> outputFile;
+	printf "id - SE internal id for edge.\n" >> outputFile;
+	printf "Vx, Vy - (m) Coordinates of center of edge.\n" >> outputFile;
+	printf "L - (m) Length of the edge.\n" >> outputFile;
+	printf "Fx, Fy, Fz - (N) Force components acting at each edge.\n" >> outputFile;
+	printf "ca - (deg) Contact angle.\n" >> outputFile;
+	printf "Calculation time: %0.3f s\n\n", (t_f - t_i) >> outputFile;
+	printf "id Vx Vy L Fx Fy Fz ca\n" >> outputFile;
+	
+	foreach edge ee where color==red do { // Contact Line edges
+
+		Fx1 := -(ee.vertices[2].y - ee.vertices[1].y); // Based off of edge vector, but rotated by 90°, because Fxy is perpendicular to CL edge.
+		Fy1 := ee.vertices[2].x - ee.vertices[1].x;
+		Nx := facets[ee.facets[1].id].facet_normal[1];
+		Ny := facets[ee.facets[1].id].facet_normal[2];
+		Nz := facets[ee.facets[1].id].facet_normal[3];
+		
+		// Polar coordinates of tension force
+		alpha := atan(sqrt(Nx^2+Ny^2)/abs(Nz)); // Correct for CA ~<180 and CA ~>180. Didn't check if less than 90 deg would work.
+		beta  := atan2(Fy1,Fx1);
+		
+		Vx := (ee.vertices[1].x + ee.vertices[2].x)/2; // Coordinate of the center of the edge.
+		Vy := (ee.vertices[1].y + ee.vertices[2].y)/2;
+		L1 := ee.length;
+		
+		// TODO - Force calculation is still not right.
+		Fx := gm * ee.length * cos(alpha) * cos(beta); // N - Force components
+		Fy := gm * ee.length * cos(alpha) * sin(beta);
+		Fz := gm * ee.length * sin(alpha);
+		ca := (pi - alpha) * 180/pi; // ° - Contact angle
+		
+		printf "%d\t%0.6e\t%0.6e\t%0.6e\t%0.6e\t%0.6e\t%0.6e\t%f\n", ee.id, Vx, Vy, L1, Fx, Fy, Fz, ca >> outputFile;
+	};
+	printf "D | "; // Done saving output. Will show on console.
+	
+	dump dumpFile;
+	printf "\n";
+}
+
+
+// ================= Evolutions/Recipes
+
+
+calcUltraRefined := { // For when the CL is very detailed (e.g. > 1300 pts).
+	t_i := clock;
+	
+	print "Step 1";
+	r;
+	u 30;
+	t 1e-6;
+	u 5;
+	t 2e-6;
+	u 5;
+	t 5e-6;
+	u 5;
+	t 10e-6;
+	u 5;
+	{cleanDiskEdge(20e-6)} 5;
+	
+	
+	printf "Step 2 "; printProgress(1, 6);
+	r;
+	u 5;
+	t 5e-6;
+	t 10e-6;
+	u 10;
+	removeZeroAreaFacets;
+	g 10;
+	{V 10; g 50; printProgress(0, 6);} 2;
+	removeZeroAreaFacets;
+	{g 50; V 10; printProgress(0, 6);} 3;
+	g 500; printProgress(0, 6);
+	removeZeroAreaFacets;
+	u 30;
+	V 10;
+		
+	
+	printf "Step 3 "; printProgress(1, 6);
+	refineNearCL;
+	t 1e-6;
+	u 30;
+	t 10e-6;
+	u 30;
+	removeZeroAreaFacets;
+	V 10; g 1000; printProgress(0, 6);
+	removeZeroAreaFacets;
+	{g 1000; printProgress(0, 6);} 5;
+	
+	printf "Step 4 "; printProgress(1, 3);
+	r;
+	u 15;
+	t 10e-6;
+	u 15;
+	removeZeroAreaFacets;
+	{V 2; g 100; printProgress(0, 3);} 2;
+	g 300; printProgress(0, 3);
+	
+	printf "Step 5 ";  printProgress(1, 5);
+	refineNearCL;
+	t 1e-6;
+	u 30;
+	t 5e-6;
+	u 30;
+	t 10e-6;
+	u 30;
+	{g 100; printProgress(0, 5);} 5;
+	
+	printf "Step 6 ";  printProgress(1, 5);
+	refineNearCL;
+	t 1e-6;
+	u 30;
+	t 2e-6;
+	u 10;
+	{g 100; printProgress(0, 5);} 5;
+	
+/* 	printf "Step 7 ";  printProgress(1, 5);
+	refineNearCL;
+	t 1e-6;
+	u 5;
+	{g 100; printProgress(0, 5);} 5;
+	
+	printf "Step 8 ";  printProgress(1, 5);
+	refineNearCL;
+	t 0.5e-6;
+	u 5;
+	{g 100; printProgress(0, 5);} 5; */
+	
+	printf "Finalizing "; printProgress(1, 3);
+	{g 1000; printProgress(0, 10);} 3;
+	
+	
+	t_f := clock;
+	printf " #ts %0.2f s\n", (t_f - t_i);
+}
+
+calcRefined := {
+	
+	local edgeRatio, L1;
+			
+	t_i := clock;
+	
+	printf "\nStep 1/5";
+	r;
+	u 30;
+	t 1e-6;
+	u 5;
+	t 2e-6;
+	u 5;
+	t 5e-6;
+	u 5;
+	t 10e-6;
+	u 5;
+	{cleanDiskEdge(20e-6)} 5;
+	
+	
+	printf "\nStep 2/5"; //printProgress(1, 6);
+	r;
+	u 5;
+	t 5e-6;
+	t 10e-6;
+	u 10;
+	removeZeroAreaFacets;
+	g 10;
+	{V 10; g 50; } 2; // printProgress(0, 6);
+	removeZeroAreaFacets;
+	{g 50; V 10; } 3; //printProgress(0, 6);
+	g 1000; //printProgress(0, 6);
+	removeZeroAreaFacets;
+	u 30;
+	V 10;
+	
+	printf "\nStep 3/5"; //printProgress(1, 3);
+	refineNearCL;
+	t 10e-6;
+	u 30;
+	t 1e-6;
+	u 30;
+	removeZeroAreaFacets;
+	V 10; g 1000; //printProgress(0, 3);
+	removeZeroAreaFacets;
+	{g 1000;} 2; //printProgress(0, 3);
+	
+	printf "\nStep 4/5"; //printProgress(1, 3);
+	r;
+	u 15;
+	t 10e-6;
+	u 15;
+	removeZeroAreaFacets;
+	{V 2; g 100; } 2; //printProgress(0, 3);
+	g 300; //printProgress(0, 3);
+	
+	printf "\nStep 5/5"; // Refining near edge
+	while meanCLTriangleRatio() > 1.5 do {
+		L1 := meanCLEdgesLength(); // Before refining
+		refineNearCL;
+		gT(L1/3); // Remove too tiny edges that might have been created.
+		u 30;
+		
+		//printf "  %0.3f ", meanCLTriangleRatio(); //printProgress(1, 5);
+		{g 200; } 5; //printProgress(0, 5);
+	};
+	
+	printf "\nFinalizing"; //printProgress(1, 10);
+	{g 200; } 10; //printProgress(0, 10);
+	
+	
+	t_f := clock;
+	printf " | #ts %0.2f s", (t_f - t_i);
+	
+}
+
+// Executing commands
+showq; // Opens graphics window where droplet is displayed.
+printf "%s> ", fileName;
+calcRefined; // Executes calculation repipe
+saveResults; // Saves results to a txt file, including contact angle measurements.
+quit; // Close Surface Evolver.

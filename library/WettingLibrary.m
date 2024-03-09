@@ -7,6 +7,58 @@ classdef WettingLibrary
 
     %% Public static functions
     methods (Static = true)
+        %% Flat field image correction
+        
+        function Fout = PrepFlatField(Fin, threshold, varargin)
+           %     Fout = PrepFlatField(Fin, threshold)
+           % Masks and normalizes Fin.
+           % The region within the disk will be kept. The region outside the disk will be set to mean value within the disk.
+           %
+           % Inputs:
+           %   Fin       : (MxM double) Flat-field to be corrected.
+           %   threshold : [0, 1] used to detect disk region.
+           %   figN      : (Optional)
+
+
+           b1 = Fin > threshold*255;
+           b2 = imfill(bwareafilt(b1, 1), 'holes');
+
+           maskedF = double(b2).*Fin;
+           maskedF(maskedF == 0) = NaN;
+           m = mean(maskedF, 'all', 'omitnan');
+
+           Fout = maskedF;
+           Fout(isnan(Fout)) = m;
+
+           if ~isempty(varargin)
+               if g.isInteger(varargin{1})
+                  figure(varargin{1});
+                  clf;
+                  imshow(g.imOverlay(uint8(Fout), bwperim(b2)));
+               end
+           end
+
+        end
+
+        function outputImage = ApplyFlatFied(inputImage, FlatField, translation, bias)
+            %    outputImage = ApplyFlatFied(inputImage, FlatField, translation, bias)
+            % Corrects inputImage with FlatField image.
+            %
+            % Inputs:
+            %   inputImage  : Grayscale uint8 image to be corrected.
+            %   FlatField   : Grayscale double flat field image.
+            %   translation : [double double] Flat-field image can be translated by X Y pixels to align with image to correct.
+            %   bias        : Double Additive term to operate the flat-field with that accounts for difference in lighting source intensity between measurement and flat-field acquisition.
+            %
+            % Outputs:
+            %   outputImage : Corrected grayscale uint8 image.
+
+            FlatField2 = imtranslate(FlatField, translation, 'FillValues', mean(FlatField, 'all')); % Translate and keep areas outside disk neutral.
+            FlatField3 = FlatField2 + bias(2); % Apply bias
+            outputImage = uint8(double(inputImage) .* mean(FlatField3, 'all')./FlatField3); % Correct image
+        end
+        
+        %%
         function [CLmask, frameB] = GetFrameCLmask_Nanograss(frameBW, threshold)
             %    [CLmask, frameB] = GetFrameCL_Nanograss(frameBW, threshold)
             % Used to detect the contact line of a droplet in contact with nanograss.
@@ -222,7 +274,6 @@ classdef WettingLibrary
                 signalF = filter(ws, 1, signal);
             end
         end
-        
         
         function strOut = numrep(str, old, nbr, format)
            %     strOut = numrep(str, old, nbr, format)
